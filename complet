@@ -1,0 +1,100 @@
+#include <SoftwareSerial.h>
+#include <RtcDS1302.h>
+#include <ThreeWire.h>
+#include <LowPower.h>
+
+// Definição dos pinos
+#define TRIGGER_PIN 13
+#define ECHO_PIN 12
+#define SIM800L_TX_PIN 3
+#define SIM800L_RX_PIN 2
+#define CLK_PIN 7
+#define DAT_PIN 8
+#define RST_PIN 9
+
+// Definição do intervalo de tempo (1 semana em segundos)
+const unsigned long INTERVALO_SEMANAL = 7 * 24 * 60 * 60;
+
+// Objetos para comunicação
+ThreeWire myWire(DAT_PIN, CLK_PIN, RST_PIN);
+RtcDS1302<ThreeWire> rtc(myWire);
+SoftwareSerial mySerial(SIM800L_TX_PIN, SIM800L_RX_PIN);
+
+// Variáveis para controle de tempo
+unsigned long ultimaMedicao = 0;
+
+void setup() {
+  Serial.begin(9600);
+  mySerial.begin(9600);
+  rtc.Begin();
+
+  // Configura os pinos do sensor ultrassônico
+  pinMode(TRIGGER_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+  digitalWrite(TRIGGER_PIN, LOW);
+
+  // Verifica se o RTC está funcionando
+  if (!rtc.IsDateTimeValid()) {
+    Serial.println("Configurando RTC com data/hora de compilação...");
+    RtcDateTime compiled = RtcDateTime(__DATE__, __TIME__);
+    rtc.SetDateTime(compiled);
+  }
+
+  // Configura o intervalo inicial
+  ultimaMedicao = rtc.GetDateTime().TotalSeconds();
+}
+
+void loop() {
+  RtcDateTime now = rtc.GetDateTime();
+  unsigned long tempoAtual = now.TotalSeconds();
+
+  // Verifica se já passou uma semana
+  if (tempoAtual - ultimaMedicao >= INTERVALO_SEMANAL) {
+    ultimaMedicao = tempoAtual;
+
+    // Mede a distância
+    float distancia = medirDistancia();
+    float porcentagem = (distancia / 200.0) * 100; // Supondo 200 cm como distância máxima
+
+    // Envia o SMS
+    enviarSMS("Distância: " + String(distancia) + " cm, " + String(porcentagem) + "%");
+
+    // Volta ao modo de baixo consumo
+    entrarModoSleep();
+  }
+
+  // Entra em modo de baixo consumo
+  LowPower.powerDown(SLEEP_8S, ADC_OFF, BOD_OFF);
+}
+
+// Função para medir a distância com o sensor ultrassônico
+float medirDistancia() {
+  digitalWrite(TRIGGER_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIGGER_PIN, LOW);
+
+  long duracao = pulseIn(ECHO_PIN, HIGH);
+  return duracao / 58.0; // Converte para centímetros
+}
+
+// Função para enviar um SMS
+void enviarSMS(String mensagem) {
+  mySerial.println("AT+CMGF=1"); // Configura o modo de texto
+  delay(500);
+  mySerial.println("AT+CMGS=\"+ZZxxxxxxxxxx\""); // Substitua pelo número de telefone
+  delay(500);
+  mySerial.print(mensagem);
+  delay(500);
+  mySerial.write(26); // Envia Ctrl+Z para finalizar
+  delay(500);
+}
+
+// Função para entrar em modo de baixo consumo
+void entrarModoSleep() {
+  // Desliga componentes não essenciais
+  digitalWrite(TRIGGER_PIN, LOW);
+  mySerial.end();
+
+  // Entrar em modo de baixo consumo
+  LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
+}
