@@ -1,0 +1,79 @@
+#include <SoftwareSerial.h>
+
+// Pinos para comunicação com o SIM800L
+#define SIM800L_TX_PIN 2
+#define SIM800L_RX_PIN 3
+
+// Objeto SoftwareSerial para comunicação com o SIM800L
+SoftwareSerial mySerial(SIM800L_TX_PIN, SIM800L_RX_PIN);
+
+// Número de telefone para enviar o SMS
+const String PHONE_NUMBER = "+ZZxxxxxxxxxx"; // Código do país + número
+
+void setup() {
+  // Inicializa a comunicação serial com o Arduino IDE
+  Serial.begin(9600);
+  
+  // Inicializa a comunicação serial com o SIM800L
+  mySerial.begin(9600);
+
+  Serial.println("Inicializando o SIM800L...");
+  delay(1000);
+
+  // Testa a comunicação com o SIM800L
+  if (sendATCommand("AT", "OK")) {
+    Serial.println("SIM800L conectado com sucesso!");
+  } else {
+    Serial.println("Falha ao conectar ao SIM800L. Verifique a conexão.");
+    while (1); // Trava o programa se o SIM800L não estiver conectado
+  }
+
+  // Configura o modo de texto para SMS
+  if (sendATCommand("AT+CMGF=1", "OK")) {
+    Serial.println("Modo de texto configurado.");
+  } else {
+    Serial.println("Falha ao configurar o modo de texto.");
+  }
+
+  // Envia um SMS
+  sendSMS(PHONE_NUMBER, "GSM ON!!");
+}
+
+void loop() {
+  
+  
+}
+
+// Função para enviar comandos AT e verificar a resposta
+bool sendATCommand(String command, String expectedResponse) {
+  mySerial.println(command);
+  delay(500); // Aguarda a resposta do SIM800L
+  String response = readSerial();
+  return response.indexOf(expectedResponse) >= 0; // Verifica se a resposta esperada foi recebida
+}
+
+// Função para enviar um SMS
+void sendSMS(String phoneNumber, String message) {
+  mySerial.println("AT+CMGS=\"" + phoneNumber + "\"");
+  delay(500);
+  mySerial.print(message);
+  delay(500);
+  mySerial.write(26); // Envia Ctrl+Z para finalizar o SMS
+  delay(500);
+
+  // Verifica se o SMS foi enviado com sucesso
+  if (sendATCommand("", "OK")) {
+    Serial.println("SMS enviado com sucesso!");
+  } else {
+    Serial.println("Falha ao enviar o SMS.");
+  }
+}
+
+// Função para ler a resposta do SIM800L
+String readSerial() {
+  String response = "";
+  while (mySerial.available()) {
+    response += char(mySerial.read());
+  }
+  return response;
+}
