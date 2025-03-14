@@ -1,0 +1,45 @@
+#include <RtcDS1302.h>
+#include <ThreeWire.h>
+
+// Definição dos pinos do DS1302
+#define CLK_PIN 7
+#define DAT_PIN 8
+#define RST_PIN 9
+
+// Inicializa o barramento de comunicação
+ThreeWire myWire(DAT_PIN, CLK_PIN, RST_PIN);
+RtcDS1302<ThreeWire> rtc(myWire);
+
+void setup() {
+    Serial.begin(9600);
+    rtc.Begin();
+
+    // Verifica se o RTC já tem uma data/hora válida
+    if (!rtc.IsDateTimeValid()) {
+        Serial.println("Data e hora inválidas, configurando para o compilado...");
+        RtcDateTime compiled = RtcDateTime(__DATE__, __TIME__);
+        rtc.SetDateTime(compiled);
+    }
+
+    //Descomente essa linha para atualizar a hora, depois comente de novo
+    //rtc.SetDateTime(RtcDateTime(2025, 3, 7, 16, 10, 0)); // Ano, Mês, Dia, Hora, Minuto, Segundo
+}
+
+void loop() {
+    RtcDateTime now = rtc.GetDateTime();
+    
+    Serial.print("Data: ");
+    Serial.print(now.Day());
+    Serial.print("/");
+    Serial.print(now.Month());
+    Serial.print("/");
+    Serial.print(now.Year());
+    Serial.print(" - Hora: ");
+    Serial.print(now.Hour());
+    Serial.print(":");
+    Serial.print(now.Minute());
+    Serial.print(":");
+    Serial.println(now.Second());
+
+    delay(5000); // Atualiza
+}
