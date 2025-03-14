@@ -1,0 +1,59 @@
+// Definindo os pinos do sensor
+#define pinTrigger 13
+#define pinEcho 12
+
+// Definindo variáveis para o controle de tempo
+unsigned long tempoAnterior = 0;
+unsigned long intervalo = 5*1000;  // Intervalo de 7 dias (em milissegundos) 604800000
+
+// Definindo o alcance máximo do sensor (em cm)
+#define MAX_DISTANCIA 60  // Alterar de acordo com o limite do seu sensor
+
+void setup() {
+  Serial.begin(9600);
+
+  // Configura os pinos
+  pinMode(pinTrigger, OUTPUT);
+  pinMode(pinEcho, INPUT);
+  digitalWrite(pinTrigger, LOW);
+  delayMicroseconds(500);  // Garantir um breve delay para iniciar
+}
+
+void loop() {
+  unsigned long tempoAtual = millis();
+
+  // Verifica se o intervalo de 7 dias passou
+  if (tempoAtual - tempoAnterior >= intervalo) {
+    tempoAnterior = tempoAtual;  // Atualiza o tempo do último ciclo
+
+    // Medir a distância
+    float distancia = calcularDistancia();
+
+    // Calcular a porcentagem da distância em relação ao alcance máximo
+    float porcentagem = (distancia / MAX_DISTANCIA) * 100;
+
+    // Imprimir distância em cm e em porcentagem
+    Serial.print("Distância: ");
+    Serial.print(distancia);
+    Serial.print(" cm, ");
+    Serial.print("Porcentagem: ");
+    Serial.print(porcentagem);
+    Serial.println(" %");
+
+    // Aguardar antes de fazer uma nova leitura (no caso, 7 dias novamente)
+  }
+}
+
+// Função para medir a distância usando o sensor ultrassônico
+float calcularDistancia() {
+  long duracao = 0;
+
+  digitalWrite(pinTrigger, HIGH);
+  delayMicroseconds(10);  // Pulso de 10 microssegundos
+  digitalWrite(pinTrigger, LOW);
+  
+  duracao = pulseIn(pinEcho, HIGH);  // Espera o retorno do eco
+
+  // Calcula a distância com base no tempo de retorno e divisor
+  return duracao / 58.0;
+}
